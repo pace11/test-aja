@@ -20,6 +20,7 @@ function validateFilePath(file) {
 }
 
 app.get("/ownership", (req, res) => {
+  console.log("Received request for ownership info:", req.query.file);
   const file = req.query.file;
 
   if (!validateFilePath(file)) {
@@ -46,6 +47,25 @@ app.get("/ownership", (req, res) => {
       { encoding: "utf-8" }
     );
 
+    const commitHash = execFileSync(
+      "git",
+      ["log", "-1", "--pretty=format:%h", "--", file],
+      { encoding: "utf-8" }
+    );
+
+    const latestEmail = execFileSync(
+      "git",
+      ["log", "-1", "--pretty=format:%ae", "--", file],
+      { encoding: "utf-8" }
+    );
+
+    const totalCommitsRaw = execFileSync(
+      "git",
+      ["rev-list", "--count", "HEAD", "--", file],
+      { encoding: "utf-8" }
+    );
+    const totalCommits = parseInt(totalCommitsRaw.trim(), 10);
+
     const shortlog = execFileSync(
       "git",
       ["shortlog", "-sne", "--", file],
@@ -59,10 +79,10 @@ app.get("/ownership", (req, res) => {
         const match = line.trim().match(/^(\d+)\s+(.*)$/);
         if (!match) return null;
         return { commits: Number(match[1]), author: match[2] };
-      })
-      .filter(Boolean);
+      })                                                  
+      .filter(Boolean);                                            
 
-    res.json({ file, latestCommit, latestAuthor, latestDate, contributors });
+    res.json({ file, latestCommit, latestAuthor, latestDate, commitHash, latestEmail, totalCommits, contributors });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to retrieve blame info" });
